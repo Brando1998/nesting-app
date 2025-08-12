@@ -1,0 +1,117 @@
+<template>
+  <div
+    class="flex flex-col md:flex-row h-screen bg-cover bg-center"
+    style="background-image: url('/src/assets/login-bg.png')"
+  >
+    <!-- Columna izquierda -->
+    <div class="flex-1 flex items-center justify-center text-white p-8">
+      <div class="max-w-md space-y-6">
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight drop-shadow-lg">
+          Crea tu cuenta<br />
+          y empieza a realizar<br />
+          tus montajes fácilmente.
+        </h1>
+        <button
+          class="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3 px-8 rounded-full shadow-md transition-colors"
+        >
+          Más información
+        </button>
+      </div>
+    </div>
+
+    <!-- Columna derecha -->
+    <div class="flex-1 flex items-center justify-center p-6 bg-black/50">
+      <div class="w-full max-w-sm">
+        <h2 class="text-yellow-400 font-bold text-3xl mb-6 text-center">Registrarse</h2>
+
+        <form @submit.prevent="handleRegister" class="space-y-4">
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Nombre completo"
+            required
+            class="w-full p-3 rounded-lg border border-gray-200 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          />
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            required
+            class="w-full p-3 rounded-lg border border-gray-200 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          />
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Contraseña"
+            required
+            class="w-full p-3 rounded-lg border border-gray-200 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          />
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Confirmar contraseña"
+            required
+            class="w-full p-3 rounded-lg border border-gray-200 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          />
+
+          <p class="text-xs text-gray-100">
+            Al registrarte aceptas los
+            <a href="#" class="font-semibold text-gray-300 hover:underline"
+              >Términos de servicio</a
+            >
+            y la
+            <a href="#" class="font-semibold text-gray-300 hover:underline"
+              >Política de privacidad</a
+            >
+          </p>
+
+          <button
+            type="submit"
+            class="w-full bg-gradient-to-r from-[#677CE7] to-[#754EA6] hover:from-[#5b6ed0] hover:to-[#684293] text-white font-semibold py-3 rounded-lg shadow-md transition-all duration-300"
+          >
+            Crear cuenta
+          </button>
+
+          <p class="text-sm text-center text-gray-300">
+            ¿Ya tienes cuenta?
+            <a href="/login" class="font-semibold text-white hover:underline"
+              >Inicia sesión</a
+            >
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { ref } from "vue";
+import { useAuthStore } from "../store/auth";
+import { useRouter } from "vue-router";
+
+const authStore = useAuthStore();
+const router = useRouter();
+
+const name = ref("");
+const email = ref("");
+const password = ref("");
+const confirmPassword = ref("");
+
+function handleRegister() {
+  if (password.value !== confirmPassword.value) {
+    alert("Las contraseñas no coinciden");
+    return;
+  }
+
+  const newUser = {
+    id: Date.now().toString(),
+    name: name.value,
+    email: email.value,
+    role: "client",
+    token: "fake-jwt-token",
+  };
+
+  authStore.login(newUser);
+  router.push("/dashboard");
+}
+</script>
