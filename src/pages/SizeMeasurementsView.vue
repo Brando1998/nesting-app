@@ -1,6 +1,6 @@
 <template>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-    <!-- Columna izquierda: selección de molde con cards -->
+    <!-- Columna izquierda: selección de molde como cards grandes -->
     <div class="bg-white shadow-lg rounded-lg p-6">
       <h2 class="text-xl font-semibold mb-4">Seleccionar molde</h2>
 
@@ -9,13 +9,19 @@
           v-for="template in templates"
           :key="template.id"
           @click="selectTemplate(template.id)"
-          class="cursor-pointer border rounded-lg shadow hover:shadow-lg overflow-hidden transition transform hover:scale-105"
+          class="cursor-pointer border rounded-lg shadow-lg hover:shadow-xl overflow-hidden transition transform hover:scale-105 bg-gray-50"
           :class="{
             'border-blue-500 ring-2 ring-blue-300': selectedTemplate === template.id
           }"
         >
-          <img :src="template.image" alt="" class="w-full h-28 object-cover" />
-          <div class="p-3 text-center font-medium">{{ template.name }}</div>
+          <img
+            :src="template.image"
+            alt=""
+            class="w-full h-36 object-cover"
+          />
+          <div class="p-4 text-center">
+            <h3 class="font-semibold text-lg">{{ template.name }}</h3>
+          </div>
         </div>
       </div>
     </div>
@@ -91,13 +97,13 @@ function selectTemplate(id: number) {
 
 function saveMeasurements() {
   if (!selectedTemplate.value) {
-    alert('Please select a template first');
+    alert('Por favor selecciona un molde primero');
     return;
   }
-  console.log('Saving measurements:', {
+  console.log('Guardando medidas:', {
     templateId: selectedTemplate.value,
     data: measurements.value,
   });
-  alert('Measurements saved!');
+  alert('Medidas guardadas correctamente!');
 }
 </script>

@@ -76,7 +76,7 @@
 import { ref } from "vue";
 import { useAuthStore } from "../store/auth";
 import { useRouter } from "vue-router";
-import mercadopagoIcon from "@/assets/icons/mercadopago.svg";
+import type { User } from '../types/User';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -85,11 +85,11 @@ const email = ref("");
 const password = ref("");
 
 function handleLogin() {
-  const mockUser = {
+  const mockUser : User = {
     id: "1",
     name: "Usuario de prueba",
     email: email.value,
-    role: email.value.includes("admin") ? "admin" : "client",
+    role: email.value.includes("admin") ? "admin" : ("client" as const),
     token: "fake-jwt-token",
   };
 

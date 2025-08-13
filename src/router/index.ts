@@ -28,7 +28,12 @@ const routes: RouteRecordRaw[] = [
         path: 'size-measurements',
         name: 'SizeMeasurements',
         component: ()=> import('../pages/SizeMeasurementsView.vue')
-      }
+      },
+      {
+        path: 'template-filler',
+        name: 'TemplateFiller',
+        component: ()=> import('../pages/TemplateFillerView.vue')
+      },
     ]
   },
   {

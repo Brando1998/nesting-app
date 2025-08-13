@@ -88,6 +88,7 @@
 import { ref } from "vue";
 import { useAuthStore } from "../store/auth";
 import { useRouter } from "vue-router";
+import type { User } from "../types/User";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -103,7 +104,22 @@ function handleRegister() {
     return;
   }
 
-  const newUser = {
+  if (password.value.length < 8) {
+    alert("La contraseña debe tener al menos 8 caracteres");
+    return;
+  }
+
+  if (password.value !== confirmPassword.value) {
+    alert("Las contraseñas no coinciden");
+    return;
+  }
+
+  if (!email.value.includes("@")) {
+    alert("Por favor ingresa un email válido");
+    return;
+  }
+
+  const newUser: User = {
     id: Date.now().toString(),
     name: name.value,
     email: email.value,
