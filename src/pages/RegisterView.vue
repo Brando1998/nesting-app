@@ -1,7 +1,7 @@
 <template>
   <div
     class="flex flex-col md:flex-row h-screen bg-cover bg-center"
-    style="background-image: url('/src/assets/login-bg.png')"
+    :style="{ backgroundImage: `url(${loginBg})` }"
   >
     <!-- Columna izquierda -->
     <div class="flex-1 flex items-center justify-center text-white p-8">
@@ -89,6 +89,7 @@ import { ref } from "vue";
 import { useAuthStore } from "../store/auth";
 import { useRouter } from "vue-router";
 import type { User } from "../types/User";
+import loginBg from '../assets/login-bg.png'
 
 const authStore = useAuthStore();
 const router = useRouter();
