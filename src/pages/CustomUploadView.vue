@@ -127,7 +127,8 @@ import { ref, onMounted } from "vue";
 import { dbService } from "../services/database.service";
 import type { Fuente } from '../types/Fuente';
 import type { Pieza } from '../types/Pieza';
-import * as cv from '@techstark/opencv-js';
+
+
 
 // Estado reactivo
 const piezasSeparadas = ref<Pieza[]>([]);
@@ -140,8 +141,28 @@ const fuenteInput = ref<HTMLInputElement | null>(null);
 
 // Cargar OpenCV al montar el componente
 onMounted(async () => {
+  await cargarOpenCV();
   await cargarDatosLocales(); // Cargar datos guardados previamente
 });
+
+async function cargarOpenCV() {
+  return new Promise<void>((resolve) => {
+    if (window.cv) return resolve();
+
+    const script = document.createElement("script");
+    script.src = "https://docs.opencv.org/4.5.5/opencv.js";
+    script.onload = () => {
+      // OpenCV carga asíncronamente, necesitamos esperar
+      const checkCV = setInterval(() => {
+        if (window.cv) {
+          clearInterval(checkCV);
+          resolve();
+        }
+      }, 100);
+    };
+    document.head.appendChild(script);
+  });
+}
 
 async function cargarDatosLocales() {
   // Cargar piezas guardadas de IndexedDB
