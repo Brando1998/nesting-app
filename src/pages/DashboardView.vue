@@ -77,6 +77,7 @@
       <button
         @click="recargarCuenta"
         class="bg-[#00BCFF] hover:bg-[#3483FA] text-white text-lg font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center gap-3"
+        loading="lazy"
       >
         <img :src="mercadopagoIcon" alt="MercadoPago" class="w-10 h-10" />
         Recargar con MercadoPago

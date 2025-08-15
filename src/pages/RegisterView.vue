@@ -89,7 +89,7 @@ import { ref } from "vue";
 import { useAuthStore } from "../store/auth";
 import { useRouter } from "vue-router";
 import type { User } from "../types/User";
-import loginBg from '../assets/login-bg.png'
+import loginBg from '../assets/login-bg.avif'
 
 const authStore = useAuthStore();
 const router = useRouter();
