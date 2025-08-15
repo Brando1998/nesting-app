@@ -111,7 +111,7 @@
             v-model="pieza.nombre"
             placeholder="Nombre pieza"
             class="w-full p-1 text-sm border border-[#725EBC] rounded bg-[#F0B100] text-white"
-            @change="actualizarNombrePieza(index, $event.target.value)"
+            @change="(e) => actualizarNombrePieza(index, (e.target as HTMLInputElement).value)"
           />
         </div>
       </div>
@@ -142,7 +142,8 @@
 <script lang="ts" setup>
 import { ref, onMounted } from "vue";
 import { dbService } from "../services/database.service";
-import type { Fuente, Molde, PiezaMolde } from "../types";
+import type { Fuente } from "../types/Fuente";
+import type { Molde, PiezaMolde } from "../types/Molde"
 
 // Estado reactivo
 const moldes = ref<Molde[]>([]);
@@ -185,46 +186,29 @@ async function cargarOpenCV() {
   });
 }
 
-// Cargar de la db
-// async function cargarDatosLocales() {
-//   try {
-//     const moldesGuardados = await dbService.obtenerMoldes();
-//     moldes.value = moldesGuardados.map(molde => ({
-//       ...molde,
-//       piezas: molde.piezas.map(pieza => ({
-//         ...pieza,
-//         preview: URL.createObjectURL(new Blob([pieza.data], { type: 'image/png' }))
-//       }))
-//     }));
-    
-//     fuenteSubida.value = await dbService.obtenerFuente();
-//   } catch (error) {
-//     console.error("Error cargando datos:", error);
-//     moldes.value = [];
-//     fuenteSubida.value = null;
-//   }
-// }
-
 async function cargarDatosLocales() {
   try {
     const moldesGuardados = await dbService.obtenerMoldes();
-    
-    moldes.value = moldesGuardados.map(molde => ({
+
+    moldes.value = moldesGuardados.map((molde) => ({
       ...molde,
       fechaCreacion: new Date(molde.fechaCreacion),
-      piezas: molde.piezas.map(pieza => ({
+      piezas: molde.piezas.map((pieza) => ({
         ...pieza,
-        preview: URL.createObjectURL(new Blob([pieza.data], { type: 'image/png' }))
+        preview: URL.createObjectURL(new Blob([pieza.data], { type: "image/png" })),
       })),
-      fuente: molde.fuente ? {
-        ...molde.fuente,
-        // Recrear ArrayBuffer si es necesario
-        data: molde.fuente.data instanceof ArrayBuffer ? 
-              molde.fuente.data : 
-              new Uint8Array(molde.fuente.data).buffer
-      } : null
+      fuente: molde.fuente
+        ? {
+            ...molde.fuente,
+            // Recrear ArrayBuffer si es necesario
+            data:
+              molde.fuente.data instanceof ArrayBuffer
+                ? molde.fuente.data
+                : new Uint8Array(molde.fuente.data).buffer,
+          }
+        : null,
     }));
-    
+
     fuenteSubida.value = await dbService.obtenerFuente();
   } catch (error) {
     console.error("Error cargando datos:", error);
@@ -298,8 +282,8 @@ async function separarPiezas() {
       if (rect.width < 50 || rect.height < 50) continue;
 
       // Crear imagen con transparencia
-      const roi = new cv.Mat.zeros(rect.height, rect.width, cv.CV_8UC4);
-      const mask = new cv.Mat.zeros(rect.height, rect.width, cv.CV_8UC1);
+      const roi = cv.Mat.zeros(rect.height, rect.width, cv.CV_8UC4);
+      const mask = cv.Mat.zeros(rect.height, rect.width, cv.CV_8UC1);
 
       // Dibujar el contorno en la máscara
       const offset = new cv.Point(-rect.x, -rect.y);
@@ -322,7 +306,7 @@ async function separarPiezas() {
 
       piezasSeparadas.value.push({
         nombre: `Pieza ${i + 1}`,
-        preview: await convertirMatAURLTransparente(roi),
+        preview: preview,
         data: await convertirMatABlob(roi),
       });
 
@@ -366,16 +350,6 @@ function cargarImagenOpenCV(src: string): Promise<cv.Mat> {
       resolve(mat);
     };
     img.src = src;
-  });
-}
-
-function convertirMatAURL(mat: cv.Mat): Promise<string> {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    cv.imshow(canvas, mat);
-    canvas.toBlob((blob) => {
-      resolve(URL.createObjectURL(blob!));
-    }, "image/png");
   });
 }
 
@@ -451,35 +425,42 @@ async function guardarMoldeCompleto() {
     moldeActual.value.fuente = fuenteSubida.value;
   }
 
-  console.log(moldeActual.value);
-
   try {
-    
     //Copia
     const moldeParaGuardar = {
       nombre: moldeActual.value.nombre,
-      piezas: moldeActual.value.piezas.map(pieza => ({
+      piezas: moldeActual.value.piezas.map((pieza: PiezaMolde) => ({
         nombre: pieza.nombre,
-        data: pieza.data // ArrayBuffer ya es serializable
+        data: pieza.data, // ArrayBuffer ya es serializable
+        preview: pieza.preview
       })),
-      fuente: fuenteSubida.value ? {
-        nombre: fuenteSubida.value.nombre,
-        data: fuenteSubida.value.data
-      } : null,
-      fechaCreacion: new Date()
+      fuente: fuenteSubida.value
+        ? {
+            nombre: fuenteSubida.value.nombre,
+            data: fuenteSubida.value.data,
+          }
+        : null,
+      fechaCreacion: new Date(),
     };
 
-    console.log("Objeto a guardar:", JSON.parse(JSON.stringify({
-      ...moldeParaGuardar,
-      piezas: moldeParaGuardar.piezas.map(p => ({
-        ...p,
-        data: `ArrayBuffer(${p.data.byteLength} bytes)`
-      })),
-      fuente: moldeParaGuardar.fuente ? {
-        ...moldeParaGuardar.fuente,
-        data: `ArrayBuffer(${moldeParaGuardar.fuente.data.byteLength} bytes)`
-      } : null
-    })));
+    // console.log(
+    //   "Objeto a guardar:",
+    //   JSON.parse(
+    //     JSON.stringify({
+    //       ...moldeParaGuardar,
+    //       piezas: moldeParaGuardar.piezas.map((p: PiezaMolde) => ({
+    //         ...p,
+    //         data: `ArrayBuffer(${p.data.byteLength} bytes)`,
+    //       })),
+    //       fuente: moldeParaGuardar.fuente
+    //         ? {
+    //             ...moldeParaGuardar.fuente,
+    //             data: `ArrayBuffer(${moldeParaGuardar.fuente.data.byteLength} bytes)`,
+    //           }
+    //         : null,
+    //     })
+    //   )
+    // );
 
     const id = await dbService.guardarMolde(moldeParaGuardar);
     alert(`Molde "${moldeActual.value.nombre}" guardado correctamente con ID: ${id}`);
