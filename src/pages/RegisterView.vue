@@ -26,7 +26,7 @@
 
         <form @submit.prevent="handleRegister" class="space-y-4">
           <input
-            v-model="name"
+            v-model="full_name"
             type="text"
             placeholder="Nombre completo"
             required
@@ -68,8 +68,9 @@
           <button
             type="submit"
             class="w-full bg-gradient-to-r from-[#677CE7] to-[#754EA6] hover:from-[#5b6ed0] hover:to-[#684293] text-white font-semibold py-3 rounded-lg shadow-md transition-all duration-300"
+            :disabled="loading"
           >
-            Crear cuenta
+            {{ loading ? "Registrando..." : "Crear cuenta" }}
           </button>
 
           <p class="text-sm text-center text-gray-300">
@@ -79,6 +80,8 @@
             >
           </p>
         </form>
+
+        <p v-if="error" class="text-red-400 text-center mt-2">{{ error }}</p>
       </div>
     </div>
   </div>
@@ -86,20 +89,19 @@
 
 <script lang="ts" setup>
 import { ref } from "vue";
-import { useAuthStore } from "../store/auth";
 import { useRouter } from "vue-router";
-import type { User } from "../types/User";
-import loginBg from '../assets/login-bg.avif'
+import { useAuth } from "../composables/useAuth";
+import loginBg from "../assets/login-bg.avif";
 
-const authStore = useAuthStore();
 const router = useRouter();
+const { register, loading, error } = useAuth();
 
-const name = ref("");
+const full_name = ref("");
 const email = ref("");
 const password = ref("");
 const confirmPassword = ref("");
 
-function handleRegister() {
+async function handleRegister() {
   if (password.value !== confirmPassword.value) {
     alert("Las contraseñas no coinciden");
     return;
@@ -110,25 +112,19 @@ function handleRegister() {
     return;
   }
 
-  if (password.value !== confirmPassword.value) {
-    alert("Las contraseñas no coinciden");
-    return;
-  }
-
   if (!email.value.includes("@")) {
     alert("Por favor ingresa un email válido");
     return;
   }
 
-  const newUser: User = {
-    id: Date.now().toString(),
-    name: name.value,
+  const success = await register({
+    full_name: full_name.value,
     email: email.value,
-    role: "client",
-    token: "fake-jwt-token",
-  };
+    password: password.value,
+  });
 
-  authStore.login(newUser);
-  router.push("/dashboard");
+  if (success) {
+    router.push("/dashboard");
+  }
 }
 </script>

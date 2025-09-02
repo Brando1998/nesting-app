@@ -1,3 +1,37 @@
+<script lang="ts" setup>
+import { ref, onMounted, computed } from "vue";
+import mercadopagoIcon from "../assets/icons/mercadopago.svg";
+import { useUser } from "../composables/useUser";
+import { useRecharge } from "../composables/useRecharge";
+import { dbService } from "../services/database.service";
+import type { Molde } from "../types/Molde";
+
+const { user, loading, error, fetchProfile, updateProfile } = useUser();
+const cliente = computed(() => ({
+  empresa: user.value?.company_name || "",
+  altoMax: 50, // por ahora fijo, hasta que lo manejes en el back
+  anchoMax: 70,
+  saldo: user.value ? Number(user.value.balance) : 0,
+}));
+const proyectos = ref<Molde[]>([]);
+const creditos = computed(() => {
+  return user.value ? Math.floor(Number(user.value.balance) / 1000) : 0;
+});
+
+async function cargarProyectos() {
+  proyectos.value = await dbService.obtenerMoldes();
+}
+
+function recargarCuenta() {
+  alert("Redirigiendo a MercadoPago...");
+}
+
+onMounted(async () => {
+  await fetchProfile();
+  await cargarProyectos();
+});
+</script>
+
 <template>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <!-- Columna izquierda: Información del cliente -->
@@ -50,10 +84,14 @@
         <button
           v-for="proyecto in proyectos"
           :key="proyecto.id"
-          class="bg-gray-100 hover:bg-blue-100 rounded-lg shadow p-4 text-left flex flex-col items-start transition"
+          class="bg-gray-100 flex flex-col items-start p-3 rounded-lg hover:bg-gray-200"
         >
-          <span class="font-semibold text-lg">{{ proyecto.nombre }}</span>
-          <span class="text-gray-500 text-sm mt-1">Fecha: {{ proyecto.fecha }}</span>
+          <span class="font-semibold text-lg">
+            {{ proyecto.nombre }}
+          </span>
+          <span class="text-gray-500 text-sm mt-1">
+            Fecha: {{ new Date(proyecto.fechaCreacion).toLocaleDateString() }}
+          </span>
         </button>
       </div>
     </div>
@@ -85,27 +123,3 @@
     </div>
   </div>
 </template>
-
-<script lang="ts" setup>
-import { ref } from "vue";
-import mercadopagoIcon from "../assets/icons/mercadopago.svg";
-
-const cliente = ref({
-  empresa: "Mi Empresa S.A.S.",
-  altoMax: 50,
-  anchoMax: 70,
-  saldo: 125000,
-});
-
-const proyectos = ref([
-  { id: 1, nombre: "Molde Caja", fecha: "2025-08-01" },
-  { id: 2, nombre: "Molde Etiqueta", fecha: "2025-08-05" },
-  { id: 3, nombre: "Molde Bolsa", fecha: "2025-08-09" },
-]);
-
-const creditos = ref(45);
-
-function recargarCuenta() {
-  alert("Redirigiendo a MercadoPago...");
-}
-</script>

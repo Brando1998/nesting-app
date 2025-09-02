@@ -101,8 +101,8 @@
 
 <script lang="ts" setup>
 import { ref } from "vue";
-import { useAuthStore } from "../store/auth";
 import { useRouter } from "vue-router";
+import { useAuthStore } from "../store/auth";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -110,6 +110,5 @@ const isMenuOpen = ref(false);
 
 function logout() {
   authStore.logout();
-  router.push("/login");
 }
 </script>

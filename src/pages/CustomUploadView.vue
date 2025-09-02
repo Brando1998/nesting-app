@@ -4,7 +4,7 @@
     <div class="space-y-6">
       <!-- Card: Subir Moldería -->
       <div
-        class="bg-white rounded-lg shadow p-6 flex flex-col items-center cursor-pointer hover:shadow-lg transition"
+        class="bg-[#687AE3] rounded-lg shadow p-6 flex flex-col items-center cursor-pointer hover:shadow-lg transition"
         @dragover.prevent
         @drop.prevent="handleFileDrop"
         @click="moldeInput?.click()"
@@ -14,13 +14,13 @@
         >
           📐
         </div>
-        <h2 class="text-lg font-bold mb-2">Subir Moldería Personalizada</h2>
+        <h2 class="text-lg font-bold mb-2 text-white">Subir Moldería Personalizada</h2>
         <p
-          class="text-sm text-gray-500 text-center mb-2 border-2 border-dashed border-gray-300 p-14 w-full"
+          class="text-sm text-gray-500 text-center mb-2 border-2 border-dashed border-gray-300 p-14 w-full text-white"
           v-if="!moldePreview"
         >
           Arrastra tu archivo aquí o haz clic para buscar
-          <span class="block text-xs text-gray-400 mt-1">Formatos: .svg, .jpg</span>
+          <span class="block text-xs text-white-400 mt-1">Formatos: .svg, .jpg</span>
         </p>
         <img
           v-if="moldePreview"
@@ -143,7 +143,7 @@
 import { ref, onMounted } from "vue";
 import { dbService } from "../services/database.service";
 import type { Fuente } from "../types/Fuente";
-import type { Molde, PiezaMolde } from "../types/Molde"
+import type { Molde, PiezaMolde } from "../types/Molde";
 
 // Estado reactivo
 const moldes = ref<Molde[]>([]);
@@ -153,43 +153,38 @@ const moldeActual = ref<Molde>({
   fuente: null,
   fechaCreacion: new Date(),
 });
-const piezasSeparadas = ref<PiezaMolde[]>([]);
 const fuenteSubida = ref<Fuente | null>(null);
 const moldePreview = ref<string | null>(null);
 const procesando = ref(false);
 const moldeInput = ref<HTMLInputElement | null>(null);
 const fuenteInput = ref<HTMLInputElement | null>(null);
-
-// Cargar OpenCV al montar el componente
-onMounted(async () => {
-  await cargarOpenCV();
-  await cargarDatosLocales(); // Cargar datos guardados previamente
+const worker = new Worker(new URL("../workers/moldeWorker.ts", import.meta.url), {
+  type: "classic", // 👈 importante
 });
 
-// Cargar la libreria open cv
-async function cargarOpenCV() {
-  return new Promise<void>((resolve) => {
-    if (window.cv) return resolve();
+worker.onmessage = (e) => {
+  console.log("📩 Respuesta del worker:", e.data);
+};
 
-    const script = document.createElement("script");
-    script.src = "https://docs.opencv.org/4.5.5/opencv.js";
-    script.onload = () => {
-      // OpenCV carga asíncronamente, necesitamos esperar
-      const checkCV = setInterval(() => {
-        if (window.cv) {
-          clearInterval(checkCV);
-          resolve();
-        }
-      }, 100);
-    };
-    document.head.appendChild(script);
-  });
-}
+worker.onerror = (err) => {
+  console.error("❌ Error en el worker:", err);
+};
+
+worker.onmessageerror = (err) => {
+  console.error("⚠️ Error en el mensaje:", err);
+};
+
+worker.onclose = () => {
+  console.warn("🔒 Worker cerrado");
+};
+
+onMounted(async () => {
+  await cargarDatosLocales();
+});
 
 async function cargarDatosLocales() {
   try {
     const moldesGuardados = await dbService.obtenerMoldes();
-
     moldes.value = moldesGuardados.map((molde) => ({
       ...molde,
       fechaCreacion: new Date(molde.fechaCreacion),
@@ -197,18 +192,7 @@ async function cargarDatosLocales() {
         ...pieza,
         preview: URL.createObjectURL(new Blob([pieza.data], { type: "image/png" })),
       })),
-      fuente: molde.fuente
-        ? {
-            ...molde.fuente,
-            // Recrear ArrayBuffer si es necesario
-            data:
-              molde.fuente.data instanceof ArrayBuffer
-                ? molde.fuente.data
-                : new Uint8Array(molde.fuente.data).buffer,
-          }
-        : null,
     }));
-
     fuenteSubida.value = await dbService.obtenerFuente();
   } catch (error) {
     console.error("Error cargando datos:", error);
@@ -233,10 +217,13 @@ async function procesarMolde(file: File) {
     return;
   }
 
+  // limpiar previews viejas
+  if (moldePreview.value) URL.revokeObjectURL(moldePreview.value);
+
   moldePreview.value = await leerArchivoComoURL(file);
-  moldeActual.value.piezas = []; // Limpiar piezas anteriores
-  piezasSeparadas.value = []; // Limpiar piezas separadas
-  separarPiezas();
+  moldeActual.value.piezas = [];
+
+  await separarPiezas();
 }
 
 function leerArchivoComoURL(file: File): Promise<string> {
@@ -247,120 +234,40 @@ function leerArchivoComoURL(file: File): Promise<string> {
   });
 }
 
-// Separar de la imagen subida
 async function separarPiezas() {
   if (!moldePreview.value) return;
-
   procesando.value = true;
-  piezasSeparadas.value = [];
+  moldeActual.value.piezas = [];
 
-  try {
-    const img = await cargarImagenOpenCV(moldePreview.value);
-    const gray = new cv.Mat();
-    cv.cvtColor(img, gray, cv.COLOR_RGBA2GRAY);
+  const res = await fetch(moldePreview.value);
+  const buffer = await res.arrayBuffer();
 
-    // 1. Crear máscara binaria
-    const binary = new cv.Mat();
-    cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+  return new Promise<void>((resolve) => {
+    worker.postMessage({ buffer });
 
-    // 2. Encontrar contornos
-    const contours = new cv.MatVector();
-    const hierarchy = new cv.Mat();
-    cv.findContours(
-      binary,
-      contours,
-      hierarchy,
-      cv.RETR_EXTERNAL,
-      cv.CHAIN_APPROX_SIMPLE
-    );
-
-    // 3. Procesar cada contorno
-    for (let i = 0; i < contours.size(); i++) {
-      const contour = contours.get(i);
-      const rect = cv.boundingRect(contour);
-
-      if (rect.width < 50 || rect.height < 50) continue;
-
-      // Crear imagen con transparencia
-      const roi = cv.Mat.zeros(rect.height, rect.width, cv.CV_8UC4);
-      const mask = cv.Mat.zeros(rect.height, rect.width, cv.CV_8UC1);
-
-      // Dibujar el contorno en la máscara
-      const offset = new cv.Point(-rect.x, -rect.y);
-      cv.drawContours(
-        mask,
-        contours,
-        i,
-        new cv.Scalar(255),
-        cv.FILLED,
-        cv.LINE_8,
-        hierarchy,
-        0,
-        offset
-      );
-
-      // Copiar solo la región con la máscara aplicada
-      img.roi(rect).copyTo(roi, mask);
-
-      const preview = await convertirMatAURLTransparente(roi);
-
-      piezasSeparadas.value.push({
-        nombre: `Pieza ${i + 1}`,
-        preview: preview,
-        data: await convertirMatABlob(roi),
-      });
-
-      roi.delete();
-      mask.delete();
-    }
-
-    // Y también al molde actual
-    moldeActual.value.piezas = [...piezasSeparadas.value];
-
-    // Liberar memoria
-    img.delete();
-    gray.delete();
-    binary.delete();
-    contours.delete();
-    hierarchy.delete();
-  } catch (error) {
-    console.error("Error al procesar imagen:", error);
-    alert("Error al separar piezas");
-  } finally {
-    procesando.value = false;
-  }
-}
-
-// Nueva función para imágenes transparentes
-function convertirMatAURLTransparente(mat: cv.Mat): Promise<string> {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    cv.imshow(canvas, mat);
-    canvas.toBlob((blob) => {
-      resolve(URL.createObjectURL(blob!));
-    }, "image/png"); // PNG soporta transparencia
+    worker.onmessage = (e: MessageEvent) => {
+      const { success, piezas, error } = e.data;
+      if (success) {
+        // reconstruir previews aquí
+        moldeActual.value.piezas = piezas.map((pieza: any) => ({
+          ...pieza,
+          preview: URL.createObjectURL(new Blob([pieza.data], { type: "image/png" })),
+        }));
+      } else {
+        console.error("Error en worker:", error);
+        alert("Error al separar piezas");
+      }
+      procesando.value = false;
+      resolve();
+    };
   });
 }
 
 function cargarImagenOpenCV(src: string): Promise<cv.Mat> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => {
-      const mat = cv.imread(img);
-      resolve(mat);
-    };
+    img.onload = () => resolve(cv.imread(img));
     img.src = src;
-  });
-}
-
-async function convertirMatABlob(mat: cv.Mat): Promise<ArrayBuffer> {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    cv.imshow(canvas, mat);
-    canvas.toBlob(async (blob) => {
-      const arrayBuffer = await blob!.arrayBuffer();
-      resolve(arrayBuffer);
-    }, "image/png");
   });
 }
 
@@ -408,7 +315,6 @@ async function eliminarFuente() {
   }
 }
 
-// Guardar
 async function guardarMoldeCompleto() {
   if (!moldeActual.value.nombre) {
     alert("Debes ingresar un nombre para el molde");
@@ -432,7 +338,7 @@ async function guardarMoldeCompleto() {
       piezas: moldeActual.value.piezas.map((pieza: PiezaMolde) => ({
         nombre: pieza.nombre,
         data: pieza.data, // ArrayBuffer ya es serializable
-        preview: pieza.preview
+        polygon: JSON.stringify(pieza.polygon),
       })),
       fuente: fuenteSubida.value
         ? {
@@ -442,25 +348,6 @@ async function guardarMoldeCompleto() {
         : null,
       fechaCreacion: new Date(),
     };
-
-    // console.log(
-    //   "Objeto a guardar:",
-    //   JSON.parse(
-    //     JSON.stringify({
-    //       ...moldeParaGuardar,
-    //       piezas: moldeParaGuardar.piezas.map((p: PiezaMolde) => ({
-    //         ...p,
-    //         data: `ArrayBuffer(${p.data.byteLength} bytes)`,
-    //       })),
-    //       fuente: moldeParaGuardar.fuente
-    //         ? {
-    //             ...moldeParaGuardar.fuente,
-    //             data: `ArrayBuffer(${moldeParaGuardar.fuente.data.byteLength} bytes)`,
-    //           }
-    //         : null,
-    //     })
-    //   )
-    // );
 
     const id = await dbService.guardarMolde(moldeParaGuardar);
     alert(`Molde "${moldeActual.value.nombre}" guardado correctamente con ID: ${id}`);
